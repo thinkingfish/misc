@@ -1,0 +1,4 @@
+twitter-slack-emojis-4splits.z01 filter=lfs diff=lfs merge=lfs -text
+twitter-slack-emojis-4splits.z02 filter=lfs diff=lfs merge=lfs -text
+twitter-slack-emojis-4splits.z03 filter=lfs diff=lfs merge=lfs -text
+twitter-slack-emojis-4splits.zip filter=lfs diff=lfs merge=lfs -text
