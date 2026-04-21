@@ -135,3 +135,83 @@
 - Novelty: High. Pushes compression past the offload/network tier into the compute kernel itself.
 - Impact: Medium-high. JCT reduction up to 70.9% vs. disaggregated baseline; technique is compelling even if the HW/kernel requirements are nontrivial.
 - Runtime evaluation: Yes — JCT, TTFT, and bandwidth utilization under disaggregated serving simulation.
+
+### 16. Locality-aware Fair Scheduling in LLM Serving (DLPM / D²LPM)
+
+- Reference: Cao et al., arXiv:2501.14312 — [arxiv](https://arxiv.org/abs/2501.14312).
+- Summary: Deficit Longest Prefix Match — a deficit-round-robin-style scheduler that trades prefix-cache locality for per-tenant fairness without sacrificing throughput.
+- Novelty: Medium-high. Cleanly models a three-way objective (fairness, locality, balance) using a Virtual Token Counter + LPM.
+- Impact: High for multi-tenant serving where one tenant's hot prefixes can starve others.
+- Runtime evaluation: Yes — throughput, p99 latency, and a fairness index across tenants on synthetic and real traces.
+
+### 17. Ada-KV: Adaptive Budget Allocation for KV Cache Eviction
+
+- Reference: Feng et al., arXiv:2407.11550 (updated 2025) — [arxiv](https://arxiv.org/abs/2407.11550).
+- Summary: Allocates per-head eviction budgets from attention-pattern statistics rather than using a uniform budget across heads.
+- Novelty: Medium. A clean empirical observation (heads differ) turned into a principled allocation rule.
+- Impact: High — widely cited baseline now integrated into several KV-compression pipelines and comparison tables.
+- Runtime evaluation: Yes — memory vs. quality across LongBench; throughput numbers are lighter but present.
+
+### 18. SCBench: A KV Cache-Centric Analysis of Long-Context Methods
+
+- Reference: Li et al., arXiv:2412.10319 — [arxiv](https://arxiv.org/abs/2412.10319).
+- Summary: Benchmark that evaluates long-context methods along the four KV lifecycle stages — generation, compression, retrieval, loading — instead of collapsing everything into end-task accuracy.
+- Novelty: High. Exposes that many long-context methods win on one stage and lose on another; the "layer-level sparsity" finding is widely referenced.
+- Impact: High as a measurement framework for KV research; becoming a standard reference.
+- Runtime evaluation: Yes — this *is* the runtime evaluation framework; measures attention shift and stage-wise cost.
+
+### 19. InstInfer: In-Storage Attention Offloading on Computational Storage Drives
+
+- Reference: Pan et al., arXiv:2409.04992 — [arxiv](https://arxiv.org/abs/2409.04992).
+- Summary: Runs attention compute *inside* Computational Storage Drives, exploiting internal flash bandwidth and P2P transfers to bypass host PCIe.
+- Novelty: High. Crosses the hardware boundary — attention inside the SSD controller — one of the few papers genuinely on the storage-system-caching frontier.
+- Impact: Medium today, potentially high if CSDs become commodity; most relevant for cost-constrained long-context inference.
+- Runtime evaluation: Yes — decoding throughput vs. host-offloaded baselines and PCIe saturation analysis.
+
+### 20. Infinite-LLM / DistAttention: Distributed KVCache for Long Context
+
+- Reference: Lin et al., arXiv:2401.02669 — [arxiv](https://arxiv.org/abs/2401.02669).
+- Summary: DistAttention partitions attention across nodes and pools KV across CPU/GPU in a cloud fleet, aimed at elastic context growth.
+- Novelty: Medium-high at publication; foundational for the subsequent Mooncake / LMCache wave.
+- Impact: High as a predecessor architecture for the disaggregated-KV trend; still a useful comparison baseline.
+- Runtime evaluation: Yes — end-to-end throughput and context-length reachability in a data-center setting.
+
+---
+
+## Cross-cutting observations
+
+- **KV cache is the new storage tier.** Section A (Mooncake, LMCache, HCache, Dynamo, llm-d) and Section B's Infinite-LLM / HACK / KVTC all treat KV as a first-class distributed-storage problem — pooled DRAM/SSD over RDMA, hash-ring placement, SLO-aware scheduling, transform coding. This is the single clearest trend of the past year.
+- **Production APIs have normalized prefix reuse.** OpenAI, Anthropic, and Gemini now publish cache-hit pricing and metadata; the "turn KV reuse into a user-visible 10× discount" move makes prefix caching a baseline expectation rather than an optimization.
+- **Compression is shifting from eviction to coding.** KVTC (transform coding), CacheGen (streaming), HACK (compute-on-compressed), and Ada-KV (head-aware budgets) collectively move the field beyond the 2024 wave of eviction heuristics.
+- **RAG caching is maturing as a subfield.** Cache-Craft + CacheBlend + RAGPulse (trace) indicate RAG-specific cache reuse (not just prefix) now has its own mechanisms and its own reference workload.
+- **Runtime-efficiency reporting is uneven.** Systems-venue papers (Mooncake, LMCache, HCache, CacheLib-FDP, Cache-Craft) report TTFT/TBT/SLO on realistic traces. ML-venue KV-compression papers (KVTC, Ada-KV, EvolKV) still skew toward quality-vs-memory and often omit serving-latency numbers — a gap the field should close.
+- **Storage-system-caching research continues in parallel** (ML for SSD admission in cloud block storage; CacheLib-FDP) and is starting to re-enter the LLM conversation via shared building blocks (CacheLib under LMCache; FDP-aware tiers under Dynamo). Cross-pollination is still limited but accelerating.
+
+## References
+
+- [arXiv:2407.00079 — Mooncake](https://arxiv.org/abs/2407.00079) · [USENIX FAST '25 page](https://www.usenix.org/conference/fast25/presentation/qin) · [github.com/kvcache-ai/Mooncake](https://github.com/kvcache-ai/Mooncake)
+- [Mooncake project site / K2 update](https://kvcache-ai.github.io/Mooncake/)
+- [arXiv:2510.09665 — LMCache](https://arxiv.org/abs/2510.09665) · [LMCache tech report](https://lmcache.ai/tech_report.pdf) · [github.com/LMCache/LMCache](https://github.com/LMCache/LMCache)
+- [arXiv:2410.05004 — HCache (EuroSys '25)](https://arxiv.org/abs/2410.05004) · [ACM DL](https://dl.acm.org/doi/10.1145/3689031.3696072)
+- [arXiv:2503.11665 — CacheLib + NVMe FDP (EuroSys '25)](https://arxiv.org/abs/2503.11665) · [ACM DL](https://dl.acm.org/doi/10.1145/3689031.3696091)
+- [NVIDIA Dynamo announcement](https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/) · [VAST × CoreWeave](https://www.vastdata.com/blog/nvidia-dynamo-vast-scalable-optimized-inference) · [LMCache × Dynamo](https://blog.lmcache.ai/2025-09-18-dynamo-lmcache/)
+- [llm-d — KV-Cache Wins You Can See](https://llm-d.ai/blog/kvcache-wins-you-can-see) · [docs.vllm.ai prefix caching](https://docs.vllm.ai/en/stable/design/prefix_caching/)
+- [Anthropic prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) · [OpenAI prompt caching](https://platform.openai.com/docs/guides/prompt-caching) · [Vertex AI context caching](https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-overview) · [Gemini implicit caching](https://mlq.ai/news/google-launches-implicit-caching-to-slash-ai-model-costs-for-developers/)
+- [arXiv:2511.12979 — RAGPulse](https://arxiv.org/abs/2511.12979)
+- [arXiv:2501.14770 — ML for SSD caches in cloud block storage](https://arxiv.org/abs/2501.14770) · [CMU-CS-24-152 — Baleen thesis](http://reports-archive.adm.cs.cmu.edu/anon/2024/CMU-CS-24-152.pdf)
+- [arXiv:2405.16444 — CacheBlend (EuroSys '25)](https://arxiv.org/abs/2405.16444) · [ACM DL](https://dl.acm.org/doi/10.1145/3689031.3696098)
+- [arXiv:2310.07240 — CacheGen (SIGCOMM '24)](https://arxiv.org/abs/2310.07240) · [ACM DL](https://dl.acm.org/doi/10.1145/3651890.3672274) · [LMCache × CacheGen blog](https://blog.lmcache.ai/en/2025/07/31/cachegen-store-your-kv-cache-on-disk-or-s3-load-blazingly-fast/)
+- [arXiv:2502.15734 — Cache-Craft](https://arxiv.org/abs/2502.15734)
+- [arXiv:2511.01815 — KVTC](https://arxiv.org/abs/2511.01815)
+- [SIGCOMM 2025 — HACK](https://dl.acm.org/doi/10.1145/3718958.3750481)
+- [arXiv:2501.14312 — DLPM / D²LPM](https://arxiv.org/abs/2501.14312)
+- [arXiv:2407.11550 — Ada-KV](https://arxiv.org/abs/2407.11550)
+- [arXiv:2412.10319 — SCBench](https://arxiv.org/abs/2412.10319)
+- [arXiv:2409.04992 — InstInfer](https://arxiv.org/abs/2409.04992)
+- [arXiv:2401.02669 — Infinite-LLM / DistAttention](https://arxiv.org/abs/2401.02669)
+
+### Additional context
+
+- [Awesome-KV-Cache-Management list](https://github.com/TreeAI-Lab/Awesome-KV-Cache-Management) — running bibliography of KV cache work.
+- [tensormesh.ai — 85% cache hit rate for agents](https://www.tensormesh.ai/blog-posts/agent-skills-caching-cacheblend-llm-cache-hit-rates) — industry writeup, useful numbers but vendor-published.
+- [introl.com — prompt caching infra guide](https://introl.com/blog/prompt-caching-infrastructure-llm-cost-latency-reduction-guide-2025) — aggregated industry numbers for 2025.
