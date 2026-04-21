@@ -91,3 +91,47 @@
 - Novelty: Medium — builds on a rich ML-admission literature; contribution is the production-trace evaluation and write-skip policy.
 - Impact: High for cloud storage operators (endurance is a real cost driver). Outside the LLM bubble but directly relevant to "caching" as a systems problem and a useful counterpoint to KV-cache work.
 - Runtime evaluation: Yes — hit rate, write amplification, and SSD endurance on real block-storage traces.
+
+---
+
+## B. Academic / idea-forward work
+
+### 11. CacheBlend: Fast LLM Serving for RAG with Cached Knowledge Fusion (EuroSys '25)
+
+- Reference: Yao et al., arXiv:2405.16444 — [arxiv](https://arxiv.org/abs/2405.16444), [EuroSys '25](https://dl.acm.org/doi/10.1145/3689031.3696098).
+- Summary: Reuses precomputed KV for arbitrary (non-prefix) text chunks in RAG and selectively recomputes a small subset of tokens to repair cross-chunk attention. The "selective recompute" idea lets RAG escape the prefix-only limitation of vanilla prefix caching.
+- Novelty: High. Opens the door to cross-query KV reuse in RAG while preserving output parity.
+- Impact: High. Cited widely; informs Cache-Craft, RAGBoost, and production chunk-caching designs.
+- Runtime evaluation: Yes — 2.2–3.3× TTFT reduction and 2.8–5× throughput improvement vs. full KV recompute with no quality loss.
+
+### 12. CacheGen: KV Cache Compression and Streaming for Fast LLM Serving (SIGCOMM '24, updated deployments '25)
+
+- Reference: Liu et al., arXiv:2310.07240 — [arxiv](https://arxiv.org/abs/2310.07240), [SIGCOMM '24](https://dl.acm.org/doi/10.1145/3651890.3672274), [LMCache deployment blog](https://blog.lmcache.ai/en/2025/07/31/cachegen-store-your-kv-cache-on-disk-or-s3-load-blazingly-fast/).
+- Summary: Custom tensor encoder that exploits KV's statistical structure to produce a bitstream representation with adaptive per-bandwidth levels, for shipping KVs from disk or over the network.
+- Novelty: High. Treats KV transport as a streaming / adaptive-bitrate problem.
+- Impact: High — the canonical reference for "store and ship KV like a compressed asset"; now implemented inside LMCache with S3/disk backends.
+- Runtime evaluation: Yes — 3.5–4.3× KV size reduction and 3.2–3.7× total fetch+process delay reduction with negligible quality loss.
+
+### 13. Cache-Craft: Managing Chunk-Caches for Efficient RAG
+
+- Reference: Agarwal et al., arXiv:2502.15734 — [arxiv](https://arxiv.org/abs/2502.15734).
+- Summary: Reuses precomputed per-chunk KV across queries and orderings in RAG, handling positional encoding and cross-chunk attention safely enough to ship.
+- Novelty: High. Extends CacheBlend's recipe into a deployable chunk-caching layer.
+- Impact: High for RAG-heavy production workloads where the retrieved chunk set is often overlapping.
+- Runtime evaluation: Yes — TTFT, throughput, and quality parity vs. vLLM on LLaMA-3-8B/70B with continuous batching.
+
+### 14. KV Cache Transform Coding for Compact Storage (KVTC)
+
+- Reference: Staniszewski & Łańcucki, arXiv:2511.01815, Nov 2025 — [arxiv](https://arxiv.org/abs/2511.01815).
+- Summary: PCA decorrelation + adaptive quantization + entropy coding for K/V tensors, targeting *stored* KV caches, not online attention.
+- Novelty: Medium-high. Revives classical image-codec tools for KV; orthogonal to eviction/selection.
+- Impact: High for tiered KV (LMCache, Mooncake Store, Dynamo) where cache size and bandwidth dominate cost; reports up to 20× compression at small quality loss.
+- Runtime evaluation: Partial — strong accuracy-vs-ratio curves; end-to-end serving-latency measurements are lighter.
+
+### 15. HACK: Homomorphic Acceleration via KV Compression for Disaggregated LLM Inference (SIGCOMM '25)
+
+- Reference: [ACM SIGCOMM 2025](https://dl.acm.org/doi/10.1145/3718958.3750481).
+- Summary: KV is compressed once and then attention operates *directly on the compressed form* ("homomorphic" in the sense of decompress-free compute), addressing the KV-transfer bottleneck in prefill/decode disaggregation.
+- Novelty: High. Pushes compression past the offload/network tier into the compute kernel itself.
+- Impact: Medium-high. JCT reduction up to 70.9% vs. disaggregated baseline; technique is compelling even if the HW/kernel requirements are nontrivial.
+- Runtime evaluation: Yes — JCT, TTFT, and bandwidth utilization under disaggregated serving simulation.
