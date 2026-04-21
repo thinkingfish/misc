@@ -51,3 +51,43 @@
 - Novelty: Medium-high. First published CacheLib × FDP integration with a production-aligned evaluation.
 - Impact: High. Reports 2× SSD-cost reduction and 4× embodied-carbon reduction at near-zero hit-rate cost — directly actionable for large-scale cache operators.
 - Runtime evaluation: Yes — replays production traces from Meta and Twitter; measures WAF, hit rate, throughput, and power.
+
+### 6. NVIDIA Dynamo + partner stacks: measured KV-offload wins in production
+
+- Reference: NVIDIA Dynamo announcement (GTC 2025) — [NVIDIA blog](https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/), [VAST × CoreWeave writeup](https://www.vastdata.com/blog/nvidia-dynamo-vast-scalable-optimized-inference), [LMCache × Dynamo](https://blog.lmcache.ai/2025-09-18-dynamo-lmcache/).
+- Summary: Dynamo is a distributed inference framework with KV-aware routing and hierarchical KV offload (HBM → DRAM → local SSD → networked storage). Integrates with LMCache as its cache layer.
+- Novelty: Low as mechanism (aggregates known techniques); high as a reference production stack.
+- Impact: High — VAST + CoreWeave report GPU efficiency +90% and TTFT up to 20× better when offloaded KV is served from network storage rather than recomputed. Now part of NVIDIA's AI Enterprise path.
+- Runtime evaluation: Yes, but vendor-published — full numbers require access to vendor reports; the methodology is production workload replay.
+
+### 7. llm-d: prefix caching measured at cluster scale (blog, 2025)
+
+- Reference: [llm-d blog — KV-Cache Wins You Can See](https://llm-d.ai/blog/kvcache-wins-you-can-see).
+- Summary: Open-source, K8s-native LLM serving platform combining vLLM, LMCache, and a cache-aware router. The post reports hit-rate and TTFT improvements as traffic is routed to replicas holding the matching prefix.
+- Novelty: Low-medium (integration); high as a concrete, reproducible open-stack production measurement.
+- Impact: Medium-high; llm-d is a growing reference for multi-tenant serving with prefix-aware routing.
+- Runtime evaluation: Yes — reports cache hit rate, TTFT, and throughput on realistic trace replays at cluster scale.
+
+### 8. Prompt / context caching in production APIs (Anthropic, OpenAI, Google)
+
+- References: [Anthropic prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), [OpenAI prompt caching](https://platform.openai.com/docs/guides/prompt-caching), [Vertex AI context caching](https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-overview), [Google implicit caching launch](https://mlq.ai/news/google-launches-implicit-caching-to-slash-ai-model-costs-for-developers/).
+- Summary: Two diverging commercial models for request-level KV reuse. OpenAI and Gemini 2.5+ ship *implicit* caching (automatic, free discount on matched prefixes, ≥1024 tokens, 5–10 min–24 h TTL). Anthropic ships *explicit* caching controlled by `cache_control` (5-min TTL, refreshes on use).
+- Novelty: Low as mechanism (prefix caching), high as public productization of KV reuse with published pricing.
+- Impact: Very high economically — publicly stated 50–90% cost cuts and 80–85% latency cuts on cached prefixes; 10× price delta for cached vs. uncached tokens at Gemini 2.5.
+- Runtime evaluation: Yes, per-provider, but the numbers are marketing-grade; `cachedContentTokenCount` (Gemini) and `cache_creation_input_tokens` / `cache_read_input_tokens` (Anthropic) give users first-party instrumentation.
+
+### 9. RAGPulse: An Open-Source RAG Workload Trace (empirical)
+
+- Reference: Wang et al., arXiv:2511.12979 — [arxiv](https://arxiv.org/abs/2511.12979).
+- Summary: A real-world trace of a Q&A RAG system revealing temporal locality and hot-document patterns; intended as a benchmark for cache, batching, and routing research.
+- Novelty: Medium — the trace is the contribution, but fills a real gap (RAG has lacked a Mooncake-style public trace).
+- Impact: High as an enabler; future cache/scheduler papers now have a shared RAG-serving reference workload.
+- Runtime evaluation: N/A (trace paper); provides the substrate to evaluate other systems.
+
+### 10. Optimizing SSD Caches for Cloud Block Storage Using ML (production traces)
+
+- Reference: Wang et al., arXiv:2501.14770 — [arxiv](https://arxiv.org/abs/2501.14770); companion work: CMU Baleen thesis [CMU-CS-24-152](http://reports-archive.adm.cs.cmu.edu/anon/2024/CMU-CS-24-152.pdf).
+- Summary: ML-driven admission/write-skip for SSD caches in cloud block storage; predicts cold writes to skip the flash layer, improving hit rate and endurance.
+- Novelty: Medium — builds on a rich ML-admission literature; contribution is the production-trace evaluation and write-skip policy.
+- Impact: High for cloud storage operators (endurance is a real cost driver). Outside the LLM bubble but directly relevant to "caching" as a systems problem and a useful counterpoint to KV-cache work.
+- Runtime evaluation: Yes — hit rate, write amplification, and SSD endurance on real block-storage traces.
